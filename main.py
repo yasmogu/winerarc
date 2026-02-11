@@ -25,14 +25,14 @@ ADMIN_ID = 7608729469  # Твой цифровой ID
 LEAD_CHAT_ID = -5208153223 # ID чата, куда падает анкета (с минусом!)
 ADMIN_USERNAME = "arbixnet" # БЕЗ @ (Куда писать лидам)
 # Ссылка на Ngrok (не забудь /app в конце)
-WEBAPP_URL = "/app"
+WEBAPP_URL = "https://winerarc.onrender.com/app"
 
 # Имя Лид-Бота (чтобы воркер знал, на кого лить)
 LEAD_BOT_USERNAME = "arbixnet_bot" # Без @
 
 WELCOME_IMAGE = ""
 # ========================================================
-DATABASE_URL = ""
+DATABASE_URL = "postgresql://postgres.xehqmckhoypehdvcyuqc:kB8QxQ#_nyS&)9,@aws-1-eu-west-1.pooler.supabase.com:6543/postgres"
 # ========================================================
 LEAD_BOT_USERNAME = LEAD_BOT_USERNAME.replace("@", "")
 
