@@ -32,7 +32,7 @@ LEAD_BOT_USERNAME = "arbixnet_bot" # Без @
 
 WELCOME_IMAGE = ""
 # ========================================================
-DATABASE_URL = "postgresql://postgres.xehqmckhoypehdvcyuqc:kB8QxQ#_nyS&)9,@aws-1-eu-west-1.pooler.supabase.com:6543/postgres"
+DATABASE_URL = "postgresql://postgres.xehqmckhoypehdvcyuqc:1KPi1id9M9VNpDq5@aws-1-eu-west-1.pooler.supabase.com:6543/postgres"
 # ========================================================
 LEAD_BOT_USERNAME = LEAD_BOT_USERNAME.replace("@", "")
 
