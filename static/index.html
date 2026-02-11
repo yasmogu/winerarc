@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Crypto Dashboard</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        :root { 
+            --bg: #050505; 
+            --card-bg: #111111; 
+            --primary: #8A2BE2; /* Neon Purple */
+            --accent: #00FF94; /* Neon Green */
+            --text: #ffffff; 
+            --text-gray: #888; 
+            --border: 1px solid rgba(138, 43, 226, 0.15);
+        }
+        body { background-color: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; margin: 0; padding: 0 0 100px 0; -webkit-tap-highlight-color: transparent; }
+        
+        /* HEADER & FILTERS */
+        .header { padding: 20px 20px 0; }
+        .filter-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 20px; background: var(--card-bg); padding: 5px; border-radius: 12px; width: fit-content; margin: 0 auto 20px; border: var(--border); }
+        .filter-btn { background: transparent; color: var(--text-gray); border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; transition: 0.3s; }
+        .filter-btn.active { background: var(--primary); color: white; box-shadow: 0 0 10px var(--primary); }
+
+        /* STATS GRID */
+        .grid-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        .g-card { background: var(--card-bg); padding: 15px; border-radius: 16px; border: var(--border); position: relative; overflow: hidden; }
+        .g-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--primary); opacity: 0.5; }
+        .g-val { font-size: 22px; font-weight: 700; color: white; margin-bottom: 4px; }
+        .g-lbl { font-size: 11px; color: var(--text-gray); text-transform: uppercase; letter-spacing: 1px; }
+
+        /* GENERAL UI */
+        .container { padding: 0 20px 20px; }
+        .card { background: var(--card-bg); border-radius: 18px; padding: 20px; margin-bottom: 15px; border: var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+        
+        input, select { background: #000; border: 1px solid #333; color: white; padding: 14px; border-radius: 12px; width: 100%; outline: none; font-size: 15px; margin-bottom: 12px; transition: 0.3s; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 8px rgba(138, 43, 226, 0.3); }
+        
+        .btn { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 12px; font-weight: 600; font-size: 15px; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4); transition: 0.2s; }
+        .btn:active { transform: scale(0.98); }
+        .btn-sm { width: 50px; margin-bottom: 0; margin-left: 10px; font-size: 22px; padding: 0; }
+
+        /* LISTS */
+        .list-header { font-size: 16px; font-weight: 700; margin: 25px 5px 10px; color: var(--accent); }
+        .item-row { padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .main-text { font-size: 14px; font-weight: 600; }
+        .sub-text { font-size: 11px; color: var(--text-gray); margin-top: 4px; }
+        .tag { font-size: 10px; padding: 4px 8px; border-radius: 6px; background: #222; color: #ccc; display: inline-block; margin-right: 5px; }
+        .tag.green { color: var(--accent); background: rgba(0, 255, 148, 0.1); }
+        .tag.red { color: #FF3B30; background: rgba(255, 59, 48, 0.1); }
+
+        /* NAV */
+        .nav { position: fixed; bottom: 20px; left: 20px; right: 20px; background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(10px); border-radius: 20px; padding: 15px; display: flex; justify-content: space-around; border: 1px solid rgba(255,255,255,0.1); z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+        .nav-icon { opacity: 0.4; transition: 0.3s; color: white; cursor: pointer; }
+        .nav-icon.active { opacity: 1; color: var(--primary); transform: translateY(-3px); filter: drop-shadow(0 0 8px var(--primary)); }
+        svg { width: 24px; height: 24px; fill: currentColor; }
+
+        .tab { display: none; animation: fadeIn 0.4s; }
+        .tab.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div id="home" class="tab active">
+        <div class="header">
+            <div class="filter-row">
+                <button class="filter-btn" onclick="setPeriod('day', this)">24H</button>
+                <button class="filter-btn" onclick="setPeriod('week', this)">7D</button>
+                <button class="filter-btn active" onclick="setPeriod('all', this)">ALL</button>
+            </div>
+
+            <div class="grid-stats">
+                <div class="g-card" style="border-color: rgba(255,255,255,0.1);">
+                    <div class="g-val">$<span id="bal">0</span></div>
+                    <div class="g-lbl">Current Balance</div>
+                </div>
+                <div class="g-card" style="border-color: rgba(0, 255, 148, 0.3);">
+                    <div class="g-val" style="color:var(--accent)">$<span id="total-earn">0</span></div>
+                    <div class="g-lbl">Total Earned</div>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 10px; background: linear-gradient(180deg, #161616 0%, #0f0f0f 100%);">
+                <canvas id="myChart" height="180"></canvas>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="card">
+                <div class="main-text">Создать поток (Link)</div>
+                <div style="display:flex; margin-top:10px;">
+                    <input type="text" id="new-mark" placeholder="Название (eng, 0-9)" oninput="this.value = this.value.replace(/[^a-zA-Z0-9_]/g, '')" style="margin-bottom:0;">
+                    <button class="btn btn-sm" onclick="act('create_link')">+</button>
+                </div>
+            </div>
+
+            <div class="list-header">Мои ссылки</div>
+            <div class="card" id="links-cont"></div>
+            <div class="list-header">Последние лиды</div>
+            <div class="card" id="leads-cont"></div>
+        </div>
+    </div>
+
+    <div id="wallet" class="tab">
+        <div class="header"><div class="g-val" style="font-size:32px;">Вывод</div></div>
+        <div class="container">
+            <div class="card">
+                <div class="g-lbl" style="margin-bottom:15px;">Доступно: $<span id="w-avail">0</span></div>
+                <input type="number" id="w-amount" placeholder="Сумма ($)">
+                <select id="w-method">
+                    <option value="USDT TRC20">USDT TRC20</option>
+                    <option value="USDT BEP20">USDT BEP20 (BNB)</option>
+                </select>
+                <input type="text" id="w-wallet" placeholder="Адрес кошелька">
+                <button class="btn" onclick="withdraw()">Запросить вывод</button>
+            </div>
+
+            <div class="list-header">История</div>
+            <div class="card" id="hist-cont"></div>
+            <button class="btn" style="background:#222; margin-top:20px;" onclick="openSupport()">👨‍💻 Поддержка</button>
+        </div>
+    </div>
+
+    <div id="prof" class="tab">
+        <div class="header"><div class="g-val">Профиль</div></div>
+        <div class="container">
+            <div class="card">
+                <div class="main-text">Сменить Никнейм</div>
+                <div style="display:flex; margin-top:10px; gap:10px;">
+                    <input type="text" id="nick-in" placeholder="Новый ник" style="margin:0;">
+                    <button class="btn" style="width: auto;" onclick="act('set_nick')">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="top" class="tab">
+        <div class="header"><div class="g-val" style="font-size:32px;">TOP 10</div><div class="g-lbl">За всё время</div></div>
+        <div class="container"><div class="card" id="top-cont"></div></div>
+    </div>
+
+    <div class="nav">
+        <div class="nav-icon active" onclick="sw('home', this)"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
+        <div class="nav-icon" onclick="sw('wallet', this)"><svg viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg></div>
+        <div class="nav-icon" onclick="sw('top', this)"><svg viewBox="0 0 24 24"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg></div>
+        <div class="nav-icon" onclick="sw('prof', this)"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp; tg.expand(); const uid = tg.initDataUnsafe.user?.id;
+        let chartInstance = null; let currentPeriod = 'all'; let myBalance = 0;
+
+        async function init() {
+            if(!uid) return;
+            let res = await fetch(`/api/user/${uid}?period=${currentPeriod}`, { headers: {"ngrok-skip-browser-warning": "true"} });
+            let d = await res.json();
+            
+            myBalance = d.balance;
+            document.getElementById('bal').innerText = d.balance;
+            document.getElementById('w-avail').innerText = d.balance;
+            document.getElementById('total-earn').innerText = d.total_earned;
+            document.getElementById('nick-in').value = d.nickname;
+            botName = d.bot_username;
+            supportLink = d.support_link;
+
+            // Links
+            let lHTML = '';
+            d.links.forEach(l => {
+                let linkUrl = `https://t.me/${botName}?start=${uid}_${l.marker}`;
+                lHTML += `<div style="border-bottom:1px solid rgba(255,255,255,0.05); padding:10px 0;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <div class="main-text">${l.marker}</div>
+                        <div class="metrics"><span class="tag">👁 ${l.clicks}</span><span class="tag green">👤 ${l.leads}</span><span class="tag red">✅ ${l.deps}</span></div>
+                    </div>
+                    <div style="font-size:10px; color:#555; margin-top:5px; cursor:pointer;" onclick="copy('${linkUrl}')">Copy Link</div>
+                </div>`;
+            });
+            document.getElementById('links-cont').innerHTML = lHTML || '<div style="text-align:center;color:#555">Нет данных</div>';
+
+            // Leads
+            let leadsHTML = '';
+            d.leads.forEach(l => { 
+                let st = l.status === 'NEW' ? '#ffd60a' : '#00FF94';
+                leadsHTML += `<div class="item-row"><div><div class="main-text">${l.username}</div><div class="sub-text">${l.marker} • ${l.date}</div></div><div class="main-text" style="color:${st}">${l.status}</div></div>`; 
+            });
+            document.getElementById('leads-cont').innerHTML = leadsHTML || '<div style="text-align:center;color:#555">Нет лидов за период</div>';
+
+            // Withdrawals
+            let wHTML = '';
+            d.withdrawals.forEach(w => {
+                 let st = w.status === 'PENDING' ? '#ffd60a' : '#00FF94';
+                 wHTML += `<div class="item-row"><div><div class="main-text">$${w.amount}</div><div class="sub-text">${w.method} • ${w.date}</div></div><div class="main-text" style="color:${st}">${w.status}</div></div>`;
+            });
+            document.getElementById('hist-cont').innerHTML = wHTML || '<div style="text-align:center;color:#555">Нет транзакций</div>';
+
+            renderChart(d.chart.labels, d.chart.leads, d.chart.deps);
+        }
+
+        async function act(action) {
+            let body = { user_id: uid, action: action };
+            if(action === 'create_link') {
+                let val = document.getElementById('new-mark').value.trim();
+                if(!val) return; body.marker = val;
+            }
+            if(action === 'set_nick') body.nickname = document.getElementById('nick-in').value;
+            
+            await fetch('/api/action', { method: 'POST', body: JSON.stringify(body), headers: {"ngrok-skip-browser-warning": "true"} });
+            if(action === 'create_link') document.getElementById('new-mark').value = '';
+            if(action === 'set_nick') tg.showPopup({message: 'Никнейм изменен!'});
+            init();
+        }
+
+        async function withdraw() {
+            let amount = document.getElementById('w-amount').value;
+            let wallet = document.getElementById('w-wallet').value;
+            let method = document.getElementById('w-method').value;
+            if(!amount || !wallet) { tg.showPopup({message: 'Заполните все поля!'}); return; }
+            if(Number(amount) > myBalance) { tg.showPopup({message: 'Недостаточно средств!'}); return; }
+
+            let body = { user_id: uid, action: 'withdraw', amount: amount, wallet: wallet, method: method };
+            let res = await fetch('/api/action', { method: 'POST', body: JSON.stringify(body), headers: {"ngrok-skip-browser-warning": "true"} });
+            let d = await res.json();
+            if(d.status === 'ok') {
+                tg.showPopup({message: 'Заявка отправлена!'});
+                document.getElementById('w-amount').value = '';
+                document.getElementById('w-wallet').value = '';
+                init();
+            } else tg.showPopup({message: 'Ошибка!'});
+        }
+
+        function setPeriod(p, btn) {
+            currentPeriod = p;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            init();
+        }
+
+        function renderChart(labels, leads, deps) {
+            const ctx = document.getElementById('myChart');
+            if(chartInstance) chartInstance.destroy();
+            Chart.defaults.color = '#555';
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Leads', data: leads, borderColor: '#8A2BE2', backgroundColor: 'rgba(138, 43, 226, 0.1)', tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 6 },
+                        { label: 'Deposits', data: deps, borderColor: '#00FF94', backgroundColor: 'rgba(0, 255, 148, 0.1)', tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 6 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false } },
+                        y: { grid: { color: '#222' }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function copy(t) { navigator.clipboard.writeText(t); tg.showPopup({message:'Copied!'}); }
+        function openSupport() { tg.openTelegramLink(supportLink); }
+        function sw(id, el) { 
+            document.querySelectorAll('.tab').forEach(e => e.classList.remove('active')); 
+            document.getElementById(id).classList.add('active'); 
+            document.querySelectorAll('.nav-icon').forEach(e => e.classList.remove('active')); 
+            el.classList.add('active');
+            if(id === 'top') loadTop();
+        }
+        async function loadTop() { 
+            let r = await fetch('/api/top', { headers: {"ngrok-skip-browser-warning": "true"} }); 
+            let d = await r.json(); 
+            let h = ''; 
+            d.forEach((u,i) => { h += `<div class="item-row"><div class="main-text">#${i+1} ${u.nickname}</div><div class="main-text" style="color:var(--accent)">$${u.balance}</div></div>`; }); 
+            document.getElementById('top-cont').innerHTML = h; 
+        }
+
+        init();
+    </script>
+</body>
+</html>
